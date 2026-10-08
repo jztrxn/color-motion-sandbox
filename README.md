@@ -35,6 +35,18 @@ To share it, send the whole folder (zipped). `index.html` needs the `js/` and `l
 
 **Simulate viewer** (under *Viewing*) shows roughly what someone with protanopia, deuteranopia or tritanopia would see, so you can check whether the motion alone separates the colors. Set it back to *Normal* before exporting the real stimulus. The app warns you if you forget.
 
+## Why stripes break up over time
+
+Motion is worked out once from the imported image; the frames don't change it. But in the MATLAB method, every pixel moves at its own speed. In a natural photo, neighboring pixels have slightly different colorfulness, so their stripes drift further out of step every second. The stripes look clean at the start, turn noisy, then snap back when the video loops.
+
+All three fixes are under **Color → speed**, and all are off by default (MATLAB behavior):
+
+- **Speed set per → Block**: one speed per block.
+- **Color smoothing**: blurs the color information so neighboring pixels get nearly equal speeds and directions. Try 3–8 px.
+- **Speed levels**: rounds speeds to a few fixed steps, so pixels on the same step never drift apart.
+
+The **Improved** preset turns all three on.
+
 ## Where things are in the code
 
 | File | What it does | Edit it to… |

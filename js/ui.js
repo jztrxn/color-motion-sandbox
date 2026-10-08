@@ -155,7 +155,7 @@ function doRebuild() {
     }
     frameData = viewCtx.createImageData(state.image.width, state.image.height);
   }
-  if (rank >= 2) state.colors = analyzeColors(state.image, s.colorSpace);
+  if (rank >= 2) state.colors = analyzeColors(state.image, s.colorSpace, s.colorSmoothing);
   if (rank >= 1) state.maps = buildMotionMaps(state.image, state.colors, s);
 
   // Playback range

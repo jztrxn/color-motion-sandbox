@@ -22,30 +22,83 @@ const EPS = 2.220446049250313e-16;   // same as MATLAB's eps
 // ---------------------------------------------------------------------
 //  STAGE 1 — hue and chroma of every pixel
 //  [labImg, hueAngle, chroma]
+//
+//  Each pixel's color is first written as two numbers (c1, c2), a point
+//  on a color plane:
+//      CIELAB          c1 = a*            c2 = b*
+//      HSV             c1 = 100·S·cos H   c2 = 100·S·sin H
+//      red–green axis  c1 = a*            c2 = 0
+//  Then hue = the angle of that point and chroma = its distance from gray.
+//
+//  If smoothingRadius > 0, c1 and c2 are blurred first, so neighboring
+//  pixels get nearly the same direction and speed. Blurring (c1, c2)
+//  rather than the hue angle handles wrap-around correctly: 350° and 10°
+//  average to 0°, not 180°.
 // ---------------------------------------------------------------------
-function analyzeColors(image, colorSpace) {
-  const N = image.width * image.height;
-  const hue = new Float32Array(N);      // radians
-  const chroma = new Float32Array(N);   // CIELAB chroma, HSV saturation × 100, or |a*|
+function analyzeColors(image, colorSpace, smoothingRadius = 0) {
+  const W = image.width, H = image.height, N = W * H;
+  const c1 = new Float32Array(N);
+  const c2 = new Float32Array(N);
   const rgb = image.rgb;
 
   for (let i = 0; i < N; i++) {
     const r = rgb[3 * i], g = rgb[3 * i + 1], b = rgb[3 * i + 2];
     if (colorSpace === 'hsv') {
       const [h, sat] = rgbToHsv(r, g, b);
-      hue[i] = h;
-      chroma[i] = sat * 100;
+      c1[i] = 100 * sat * Math.cos(h);
+      c2[i] = 100 * sat * Math.sin(h);
     } else if (colorSpace === 'labRedGreen') {
       const [, A] = rgbToLab(r, g, b);
-      hue[i] = A >= 0 ? 0 : Math.PI;          // a* > 0 (reddish) → right, a* < 0 (greenish) → left
-      chroma[i] = Math.abs(A);
+      c1[i] = A;                              // a* > 0 (reddish) → right, a* < 0 (greenish) → left
+      c2[i] = 0;
     } else {
       const [, A, B] = rgbToLab(r, g, b);
-      hue[i] = Math.atan2(B, A);              // hueAngle = atan2(b, a)
-      chroma[i] = Math.sqrt(A * A + B * B);   // chroma = sqrt(a.^2 + b.^2)
+      c1[i] = A;
+      c2[i] = B;
     }
   }
+
+  if (smoothingRadius > 0) {
+    blurComponent(c1, W, H, smoothingRadius);
+    blurComponent(c2, W, H, smoothingRadius);
+  }
+
+  const hue = new Float32Array(N);      // radians
+  const chroma = new Float32Array(N);   // CIELAB chroma, HSV saturation × 100, or |a*|
+  for (let i = 0; i < N; i++) {
+    hue[i] = Math.atan2(c2[i], c1[i]);                  // hueAngle = atan2(b, a)
+    chroma[i] = Math.sqrt(c1[i] * c1[i] + c2[i] * c2[i]); // chroma = sqrt(a.^2 + b.^2)
+  }
   return { hue, chroma };
+}
+
+// Blurs one W×H channel in place. Three passes of a box blur
+// (horizontal, then vertical) closely approximate a Gaussian blur, and
+// the time it takes doesn't depend on the radius. Edges repeat the
+// border pixel.
+function blurComponent(values, W, H, radius) {
+  const r = Math.round(radius);
+  const temp = new Float32Array(values.length);
+  for (let pass = 0; pass < 3; pass++) {
+    boxBlurLines(values, temp, W, H, r, 1, W);   // along rows
+    boxBlurLines(temp, values, H, W, r, W, 1);   // along columns
+  }
+}
+
+// Box-blurs `count` lines of `length` samples from src into dst.
+// step = distance between samples in a line, lineStep = between lines.
+function boxBlurLines(src, dst, length, count, r, step, lineStep) {
+  const width = 2 * r + 1;
+  for (let line = 0; line < count; line++) {
+    const start = line * lineStep;
+    const at = k => src[start + Math.min(Math.max(k, 0), length - 1) * step];
+    let sum = 0;
+    for (let k = -r; k <= r; k++) sum += at(k);
+    for (let k = 0; k < length; k++) {
+      dst[start + k * step] = sum / width;
+      sum += at(k + r + 1) - at(k - r);
+    }
+  }
 }
 
 
@@ -81,9 +134,12 @@ function buildMotionMaps(image, colors, s) {
 
   const temporalFreq = new Float32Array(N);   // stripes per second (Hz)
   const moves = new Uint8Array(N);            // 0 = below the gray threshold
+  const levels = Number(s.speedLevels);       // 0 = continuous (MATLAB)
   for (let i = 0; i < N; i++) {
     let strength = Math.min(colors.chroma[i] / (normalizer + EPS), 1);
     strength = Math.pow(strength, s.chromaGamma);
+    // Round to a few fixed speeds, so pixels in the same step never drift apart
+    if (levels >= 2) strength = Math.round(strength * (levels - 1)) / (levels - 1);
     temporalFreq[i] = s.minTemporalFreq + strength * (s.maxTemporalFreq - s.minTemporalFreq);
     moves[i] = colors.chroma[i] >= s.minChroma ? 1 : 0;
   }

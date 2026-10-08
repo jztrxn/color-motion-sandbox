@@ -94,7 +94,33 @@ const PARAMETERS = [
       { value: 'pixel', label: 'Pixel (MATLAB)' },
       { value: 'block', label: 'Block (average)' },
     ],
-    help: 'Per pixel: neighboring pixels with slightly different chroma drift apart over time and the stripes can turn noisy. Per block: every pixel in a block moves at the block\'s average speed, which keeps the stripes clean.',
+    help: 'Per pixel: neighboring pixels with slightly different chroma move at slightly different speeds, drift further out of step every second, and the stripes turn noisy until the video loops. This is most visible in natural photos. Per block: every pixel in a block moves at the block\'s average speed, which keeps the stripes clean. Color smoothing and speed levels (below) are other fixes.',
+  },
+  {
+    key: 'colorSmoothing', group: 'Color → speed', label: 'Color smoothing',
+    type: 'range', default: 0, min: 0, max: 30, step: 1, unit: 'px', rebuild: 'colors',
+    help: 'Blurs the color information (not the picture) before direction and speed are worked out, so neighboring pixels get nearly equal values and their stripes stay together much longer. 0 = off (MATLAB). Try 3–8 for photos.',
+  },
+  {
+    key: 'speedLevels', group: 'Color → speed', label: 'Speed levels',
+    type: 'select', default: '0',
+    options: [
+      { value: '0', label: 'Continuous (MATLAB)' },
+      { value: '2', label: '2 speeds' },
+      { value: '3', label: '3 speeds' },
+      { value: '4', label: '4 speeds' },
+      { value: '5', label: '5 speeds' },
+      { value: '6', label: '6 speeds' },
+      { value: '8', label: '8 speeds' },
+    ],
+    readout: s => {
+      const L = Number(s.speedLevels);
+      if (L < 2) return '';
+      const speeds = [];
+      for (let k = 0; k < L; k++) speeds.push((s.minTemporalFreq + k / (L - 1) * (s.maxTemporalFreq - s.minTemporalFreq)).toFixed(1));
+      return speeds.join(', ') + ' Hz';
+    },
+    help: 'Rounds each pixel\'s speed to one of a few fixed steps. Pixels on the same step never drift apart, so regions stay clean for the whole video; only the borders between steps can shimmer.',
   },
 
   // ------------------------------------------------ Grating (the stripes)
@@ -228,6 +254,8 @@ const PRESETS = {
     chromaNormalization: 'fixed',
     chromaReference: 100,
     minChroma: 5,
+    colorSmoothing: 4,
+    speedLevels: '4',
     speedMode: 'block',
     gratingCoords: 'global',
     blockOverlap: '0.5',
