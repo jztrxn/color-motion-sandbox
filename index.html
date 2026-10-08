@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Color Motion Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="toolbar">
+    <h1>Color → Motion Sandbox</h1>
+    <div class="tools">
+      <button id="openImageBtn" class="primary">Open image…</button>
+      <label class="inline">Test pattern
+        <select id="patternSelect"><option value="">—</option></select>
+      </label>
+      <label class="inline">Preset
+        <select id="presetSelect"><option value="">—</option></select>
+      </label>
+      <button id="saveSettingsBtn">Save settings</button>
+      <button id="loadSettingsBtn">Load settings…</button>
+      <button id="exportBtn" class="accent">Export MP4</button>
+    </div>
+    <input type="file" id="imageInput" accept="image/*" hidden>
+    <input type="file" id="settingsInput" accept=".json,application/json" hidden>
+  </header>
+
+  <main class="layout">
+    <section class="stage" id="stage">
+      <div class="canvases">
+        <figure>
+          <canvas id="viewCanvas"></canvas>
+          <figcaption id="viewCaption">Animated</figcaption>
+        </figure>
+        <figure id="originalFigure" hidden>
+          <canvas id="originalCanvas"></canvas>
+          <figcaption id="originalCaption">Original</figcaption>
+        </figure>
+      </div>
+
+      <div class="transport">
+        <button id="playBtn" title="Play / pause (space bar)">Pause</button>
+        <input type="range" id="frameSlider" min="0" max="119" value="0" step="1" aria-label="Frame">
+        <span id="timeLabel" class="mono">frame 1 / 120</span>
+      </div>
+
+      <p id="status" class="status">Drop an image anywhere on this page, or click “Open image…”.</p>
+      <div id="dropHint" class="drop-hint" hidden>Drop image or settings file</div>
+    </section>
+
+    <aside class="panel" id="panel" aria-label="Parameters"></aside>
+  </main>
+
+  <div id="exportOverlay" class="overlay" hidden>
+    <div class="overlay-box">
+      <p id="exportMessage">Exporting MP4…</p>
+      <progress id="exportProgress" max="1" value="0"></progress>
+    </div>
+  </div>
+
+  <!-- Plain scripts (no modules) so the page works when opened straight from a folder. -->
+  <script src="lib/mp4-muxer.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/color.js"></script>
+  <script src="js/motion.js"></script>
+  <script src="js/testpatterns.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
